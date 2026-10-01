@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 
 export async function POST(request: Request) {
   try {
@@ -7,24 +6,40 @@ export async function POST(request: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ reply: 'APIキーが設定されていません。Vercelの環境変数を確認してください。' }, { status: 500 });
+      return NextResponse.json({ reply: 'GEMINI_API_KEY が環境変数に設定されていません。' }, { status: 500 });
     }
 
-    // 新しいGoogle Gen AI SDKの初期化
-    const ai = new GoogleGenAI({ apiKey });
-
-    const prompt = `以下のユーザーのメモに対して、ポジティブで建設的なひらめきや深掘りのアドバイスを日本語で3〜4文程度で短く返してください。\n\nメモ: 「${text}」`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+    // Google Gemini APIへ直接fetchでリクエスト
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: `以下のユーザーのメモに対して、ポジティブで建設的なひらめきや深掘りのアドバイスを日本語で3〜4文程度で短く返してください。\n\nメモ: 「${text}」`
+              }
+            ]
+          }
+        ]
+      }),
     });
 
-    const reply = response.text ? response.text.trim() : 'ひらめきが得られませんでした。';
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Gemini API Error Details:', data);
+      throw new Error(data.error?.message || 'Gemini API failed');
+    }
+
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'ひらめきが得られませんでした。';
 
     return NextResponse.json({ reply });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ reply: 'AIの処理中にエラーが発生しました。' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Catch Error:', error);
+    return NextResponse.json({ reply: `エラーが発生しました: ${error.message || '不明なエラー'}` }, { status: 500 });
   }
 }
