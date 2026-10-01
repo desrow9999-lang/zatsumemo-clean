@@ -6,6 +6,7 @@ interface Memo {
   id: string;
   text: string;
   timestamp: string;
+  aiReply?: string;
 }
 
 export default function Home() {
@@ -28,6 +29,7 @@ export default function Home() {
           id: '1',
           text: 'サクッと書いたアイデアの断片。ここからひらめきが広がる。',
           timestamp: '2026.10.01 09:30',
+          aiReply: 'シンプルイズベスト！そこから意外な大発見が生まれるかも。',
         }
       ]);
     }
@@ -37,6 +39,19 @@ export default function Home() {
   const saveToStorage = (newMemos: Memo[]) => {
     setMemos(newMemos);
     localStorage.setItem('zatsumemo_memos', JSON.stringify(newMemos));
+  };
+
+  // メモの内容に応じた簡単なAIのひらめき生成ロジック
+  const generateAiReply = (text: string) => {
+    const replies = [
+      `「${text}」……ほう、面白い着眼点ですね。深掘りしてみる価値あり！`,
+      `それ、もしかして新しいプロジェクトの芽かもしれませんよ 🌱`,
+      `シンプルだけど本質を突いてますね。明日には形にできるかも？`,
+      `お、冴えてますね！その調子でどんどん雑に書き留めていきましょう。`,
+      `AI的にもかなり気になるキーワードです。詳しくメモを足していきますか？`
+    ];
+    // ランダムに1つ選ぶ
+    return replies[Math.floor(Math.random() * replies.length)];
   };
 
   const handleSave = () => {
@@ -49,11 +64,13 @@ export default function Home() {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     
     const timestamp = `${year}.${month}.${day} ${hours}:${minutes}`;
+    const aiReply = generateAiReply(content);
     
     const newMemo: Memo = {
       id: Date.now().toString(),
       text: content,
       timestamp,
+      aiReply,
     };
 
     saveToStorage([newMemo, ...memos]);
@@ -131,7 +148,7 @@ export default function Home() {
         </div>
 
         {/* メモ一覧（タイムライン） */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2 style={{ fontSize: '14px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             最近の足跡
           </h2>
@@ -143,9 +160,27 @@ export default function Home() {
               border: '1px solid #e2e8f0',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)'
             }}>
-              <p style={{ fontSize: '15px', lineHeight: '1.5', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>
+              <p style={{ fontSize: '15px', lineHeight: '1.5', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
                 {memo.text}
               </p>
+
+              {/* AIからのひらめき返信 */}
+              {memo.aiReply && (
+                <div style={{
+                  backgroundColor: '#f1f5f9',
+                  borderRadius: '8px',
+                  padding: '10px 12px',
+                  fontSize: '13px',
+                  color: '#334155',
+                  marginBottom: '10px',
+                  borderLeft: '3px solid #0f172a',
+                  lineHeight: '1.4'
+                }}>
+                  <span style={{ fontWeight: '700', marginRight: '4px' }}>💡 AIのひらめき:</span>
+                  {memo.aiReply}
+                </div>
+              )}
+
               <div style={{ fontSize: '12px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span>👣</span>
                 <span>{memo.timestamp}</span>
