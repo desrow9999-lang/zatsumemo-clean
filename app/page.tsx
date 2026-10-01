@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Memo {
   id: string;
@@ -10,13 +10,34 @@ interface Memo {
 
 export default function Home() {
   const [content, setContent] = useState('');
-  const [memos, setMemos] = useState<Memo[]>([
-    {
-      id: '1',
-      text: 'サクッと書いたアイデアの断片。ここからひらめきが広がる。',
-      timestamp: '2026.10.01 09:30',
+  const [memos, setMemos] = useState<Memo[]>([]);
+
+  // 最初に開いたとき、保存されているメモを読み込む
+  useEffect(() => {
+    const saved = localStorage.getItem('zatsumemo_memos');
+    if (saved) {
+      try {
+        setMemos(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      // 初期メモ
+      setMemos([
+        {
+          id: '1',
+          text: 'サクッと書いたアイデアの断片。ここからひらめきが広がる。',
+          timestamp: '2026.10.01 09:30',
+        }
+      ]);
     }
-  ]);
+  }, []);
+
+  // メモが更新されたらブラウザに保存する
+  const saveToStorage = (newMemos: Memo[]) => {
+    setMemos(newMemos);
+    localStorage.setItem('zatsumemo_memos', JSON.stringify(newMemos));
+  };
 
   const handleSave = () => {
     if (!content.trim()) return;
@@ -35,7 +56,7 @@ export default function Home() {
       timestamp,
     };
 
-    setMemos([newMemo, ...memos]);
+    saveToStorage([newMemo, ...memos]);
     setContent('');
   };
 
