@@ -7,6 +7,7 @@ interface Memo {
   text: string;
   timestamp: string;
   aiReply?: string;
+  isThinking?: boolean;
 }
 
 export default function Home() {
@@ -29,7 +30,7 @@ export default function Home() {
           id: '1',
           text: 'サクッと書いたアイデアの断片。ここからひらめきが広がる。',
           timestamp: '2026.10.01 09:30',
-          aiReply: 'シンプルイズベスト！そこから意外な大発見が生まれるかも。',
+          aiReply: '「シンプルイズベスト」ですね！ここからどんな展開が生まれそうですか？下のボタンからいつでもAIに深掘りを頼めます。',
         }
       ]);
     }
@@ -39,19 +40,6 @@ export default function Home() {
   const saveToStorage = (newMemos: Memo[]) => {
     setMemos(newMemos);
     localStorage.setItem('zatsumemo_memos', JSON.stringify(newMemos));
-  };
-
-  // メモの内容に応じた簡単なAIのひらめき生成ロジック
-  const generateAiReply = (text: string) => {
-    const replies = [
-      `「${text}」……ほう、面白い着眼点ですね。深掘りしてみる価値あり！`,
-      `それ、もしかして新しいプロジェクトの芽かもしれませんよ 🌱`,
-      `シンプルだけど本質を突いてますね。明日には形にできるかも？`,
-      `お、冴えてますね！その調子でどんどん雑に書き留めていきましょう。`,
-      `AI的にもかなり気になるキーワードです。詳しくメモを足していきますか？`
-    ];
-    // ランダムに1つ選ぶ
-    return replies[Math.floor(Math.random() * replies.length)];
   };
 
   const handleSave = () => {
@@ -64,17 +52,48 @@ export default function Home() {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     
     const timestamp = `${year}.${month}.${day} ${hours}:${minutes}`;
-    const aiReply = generateAiReply(content);
     
     const newMemo: Memo = {
       id: Date.now().toString(),
       text: content,
       timestamp,
-      aiReply,
     };
 
     saveToStorage([newMemo, ...memos]);
     setContent('');
+  };
+
+  // 個別のメモに対してAIにひらめき・深掘りをお願いするボタンの処理
+  const handleAskAi = (id: string) => {
+    const updated = memos.map((memo) => {
+      if (memo.id === id) {
+        return { ...memo, isThinking: true };
+      }
+      return memo;
+    });
+    setMemos(updated);
+
+    // 擬似的にAIの思考時間を演出（のちに本物のAPI通信に置き換えます）
+    setTimeout(() => {
+      const targetMemo = memos.find(m => m.id === id);
+      const text = targetMemo ? targetMemo.text : '';
+      
+      const deepReplies = [
+        `「${text}」についてAIが多角的に分析しました。ターゲットを絞り、具体的なアクションを3つに分解してみると一気に進むかもしれません！`,
+        `このアイデア（${text}）の核心は、既存の常識を少しずらす点にありそうです。もし逆の視点からアプローチするとどうなるでしょうか？`,
+        `非常に興味深いメモですね。「${text}」をさらに発展させるために、まずは小さなプロトタイプを作ってみるのがおすすめです。`,
+        `AIによる深掘り完了です！この発想は、意外な分野の技術や習慣と組み合わせることで、大きなイノベーションに化けるポテンシャルがあります。`
+      ];
+      const randomReply = deepReplies[Math.floor(Math.random() * deepReplies.length)];
+
+      const finalUpdated = memos.map((memo) => {
+        if (memo.id === id) {
+          return { ...memo, aiReply: randomReply, isThinking: false };
+        }
+        return memo;
+      });
+      saveToStorage(finalUpdated);
+    }, 1000);
   };
 
   return (
@@ -164,7 +183,7 @@ export default function Home() {
                 {memo.text}
               </p>
 
-              {/* AIからのひらめき返信 */}
+              {/* AIからのひらめき返信（ある場合） */}
               {memo.aiReply && (
                 <div style={{
                   backgroundColor: '#f1f5f9',
@@ -172,19 +191,41 @@ export default function Home() {
                   padding: '10px 12px',
                   fontSize: '13px',
                   color: '#334155',
-                  marginBottom: '10px',
+                  marginBottom: '12px',
                   borderLeft: '3px solid #0f172a',
                   lineHeight: '1.4'
                 }}>
-                  <span style={{ fontWeight: '700', marginRight: '4px' }}>💡 AIのひらめき:</span>
+                  <span style={{ fontWeight: '700', marginRight: '4px' }}>✨ AIのひらめき:</span>
                   {memo.aiReply}
                 </div>
               )}
 
-              <div style={{ fontSize: '12px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>👣</span>
-                <span>{memo.timestamp}</span>
+              {/* フッター（タイムスタンプ ＆ AI深掘りボタン） */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                <div style={{ fontSize: '12px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>👣</span>
+                  <span>{memo.timestamp}</span>
+                </div>
+
+                <button
+                  onClick={() => handleAskAi(memo.id)}
+                  disabled={memo.isThinking}
+                  style={{
+                    backgroundColor: memo.isThinking ? '#cbd5e1' : '#f8fafc',
+                    color: memo.isThinking ? '#64748b' : '#0f172a',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: memo.isThinking ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {memo.isThinking ? '考え中...' : '✨ AIに深掘りを頼む'}
+                </button>
               </div>
+
             </div>
           ))}
         </div>
