@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ reply: 'OPENAI_API_KEY が環境変数に設定されていません。' }, { status: 500 });
+      return NextResponse.json({ reply: 'OPENAI_API_KEY が設定されていません。' }, { status: 500 });
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -20,13 +20,14 @@ export async function POST(request: Request) {
         messages: [
           {
             role: 'system',
-            content: 'あなたはユーザーのメモを鋭く深掘りし、さらに調べるための検索の視点や、ポジティブで建設的なひらめきを日本語で3〜4文程度でスマートに返すアシスタントです。「〜のひらめき：」といった固定の肩書は出力せず、内容だけを簡潔に返してください。'
+            content: 'あなたはユーザーのメモを深掘りし、役立つひらめきや検索の視点を返すアシスタントです。必ずJSON形式で、以下の2つのキーを含めて日本語で返してください。「reply」には3〜4文のひらめき・深掘り文章、「keyword」には楽天市場で関連アイテムを探すための最適な検索キーワード（1〜2単語程度）を入れてください。例: {"reply": "...", "keyword": "おにぎり 具材"}'
           },
           {
             role: 'user',
-            content: `以下のメモに対して、深掘りの視点や検索のヒントを含めたひらめきをください。\n\nメモ: 「${text}」`
+            content: `以下のメモに対してひらめきをください。\n\nメモ: 「${text}」`
           }
         ],
+        response_format: { type: 'json_object' },
         temperature: 0.7,
       }),
     });
@@ -34,15 +35,17 @@ export async function POST(request: Request) {
     const data = await response.json();
     
     if (!response.ok) {
-      console.error('OpenAI API Error:', data);
       throw new Error(data.error?.message || 'OpenAI API failed');
     }
 
-    const reply = data.choices[0]?.message?.content?.trim() || 'ひらめきが得られませんでした。';
-
-    return NextResponse.json({ reply });
+    const content = JSON.parse(data.choices[0]?.message?.content?.trim() || '{}');
+    
+    return NextResponse.json({
+      reply: content.reply || 'ひらめきが得られませんでした。',
+      keyword: content.keyword || text,
+    });
   } catch (error: any) {
     console.error('Catch Error:', error);
-    return NextResponse.json({ reply: `エラーが発生しました: ${error.message || '不明なエラー'}` }, { status: 500 });
+    return NextResponse.json({ reply: `エラーが発生しました: ${error.message || '不明なエラー'}`, keyword: '' }, { status: 500 });
   }
 }
