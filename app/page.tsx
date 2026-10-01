@@ -5,78 +5,57 @@ import { useState, useEffect } from 'react';
 interface Memo {
   id: string;
   text: string;
-  timestamp: string;
   aiReply?: string;
-  isThinking?: boolean;
+  createdAt: string;
+  isAnalyzing?: boolean;
 }
 
 export default function Home() {
-  const [content, setContent] = useState('');
   const [memos, setMemos] = useState<Memo[]>([]);
+  const [inputText, setInputText] = useState('');
 
-  // 最初に開いたとき、保存されているメモを読み込む
+  // ローカルストレージからメモを読み込む
   useEffect(() => {
     const saved = localStorage.getItem('zatsumemo_memos');
     if (saved) {
       try {
         setMemos(JSON.parse(saved));
       } catch (e) {
-        console.error(e);
+        console.error('Failed to load memos', e);
       }
-    } else {
-      // 初期メモ
-      setMemos([
-        {
-          id: '1',
-          text: 'サクッと書いたアイデアの断片。ここからひらめきが広がる。',
-          timestamp: '2026.10.01 09:30',
-          aiReply: '「シンプルイズベスト」ですね！右下のボタンから本物のGemini AIに深掘りをお願いできます。',
-        }
-      ]);
     }
   }, []);
 
-  // メモが更新されたらブラウザに保存する
-  const saveToStorage = (newMemos: Memo[]) => {
+  // メモを保存する関数
+  const saveMemos = (newMemos: Memo[]) => {
     setMemos(newMemos);
     localStorage.setItem('zatsumemo_memos', JSON.stringify(newMemos));
   };
 
-  const handleSave = () => {
-    if (!content.trim()) return;
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    
-    const timestamp = `${year}.${month}.${day} ${hours}:${minutes}`;
-    
+  // メモを追加する
+  const handleAddMemo = () => {
+    if (!inputText.trim()) return;
+
     const newMemo: Memo = {
       id: Date.now().toString(),
-      text: content,
-      timestamp,
+      text: inputText.trim(),
+      createdAt: new Date().toLocaleString(),
     };
 
-    saveToStorage([newMemo, ...memos]);
-    setContent('');
+    const updated = [newMemo, ...memos];
+    saveMemos(updated);
+    setInputText('');
   };
 
-  // 本物のGemini APIを呼び出す処理
-  const handleAskAi = async (id: string, text: string) => {
-    // 思考中フラグを立てる
-    const updatingThinking = memos.map((m) => m.id === id ? { ...m, isThinking: true } : m);
-    setMemos(updatingThinking);
+  // AIに深掘りや検索のヒントを頼む
+  const handleAIBrainstorm = async (id: string, text: string) => {
+    // 分析中のフラグを立てる
+    const updatedLoading = memos.map((m) =>
+      m.id === id ? { ...m, isAnalyzing: true } : m
+    );
+    setMemos(updatedLoading);
 
     try {
-      const response = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: { prompt: text } as any, // 修正用の一時的な記述
-      });
-
-      // APIルートへのリクエスト（安全にサーバー側でGeminiを呼ぶためのフェッチ）
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,159 +63,218 @@ export default function Home() {
       });
 
       const data = await res.json();
-      const aiReply = data.reply || 'AIからのひらめきを取得できませんでした。';
 
-      const finalUpdated = memos.map((m) => {
-        if (m.id === id) {
-          return { ...m, aiReply, isThinking: false };
-        }
-        return m;
-      });
-      saveToStorage(finalUpdated);
-
-    } catch (error) {
-      console.error(error);
-      alert('AIの呼び出しに失敗しました');
-      const resetUpdated = memos.map((m) => m.id === id ? { ...m, isThinking: false } : m);
-      setMemos(resetUpdated);
+      const updatedWithAI = memos.map((m) =>
+        m.id === id ? { ...m, aiReply: data.reply, isAnalyzing: false } : m
+      );
+      saveMemos(updatedWithAI);
+    } catch (e) {
+      console.error(e);
+      const updatedError = memos.map((m) =>
+        m.id === id ? { ...m, aiReply: 'AIの呼び出しに失敗しました', isAnalyzing: false } : m
+      );
+      saveMemos(updatedError);
     }
   };
 
+  // メモを削除する
+  const handleDelete = (id: string) => {
+    const filtered = memos.filter((m) => m.id !== id);
+    saveMemos(filtered);
+  };
+
   return (
-    <main style={{
-      minHeight: '100vh',
-      backgroundColor: '#f8fafc',
-      color: '#0f172a',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      padding: '24px 16px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center'
-    }}>
-      <div style={{ width: '100%', maxWidth: '500px' }}>
-        
-        {/* ヘッダー */}
-        <header style={{ marginBottom: '24px', textAlign: 'center' }}>
-          <h1 style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '-0.025em', marginBottom: '4px', color: '#1e293b' }}>
-            ザツメモ
-          </h1>
-          <p style={{ fontSize: '13px', color: '#64748b' }}>
-            足跡とひらめきを連れてくるAIノート
-          </p>
-        </header>
+    <main style={styles.container}>
+      <h1 style={styles.title}>ザツメモ</h1>
+      <p style={styles.subtitle}>足跡とひらめきを連れてくるAIノート</p>
 
-        {/* 入力エリア */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          padding: '16px',
-          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-          border: '1px solid #e2e8f0',
-          marginBottom: '24px'
-        }}>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="いま何を考えてる？雑に書いてみよう..."
-            style={{
-              width: '100%',
-              height: '120px',
-              padding: '12px',
-              borderRadius: '12px',
-              border: '1px solid #cbd5e1',
-              fontSize: '15px',
-              outline: 'none',
-              resize: 'none',
-              backgroundColor: '#f8fafc',
-              color: '#1e293b',
-              boxSizing: 'border-box',
-              marginBottom: '12px'
-            }}
-          />
-          <button
-            onClick={handleSave}
-            style={{
-              width: '100%',
-              backgroundColor: '#0f172a',
-              color: '#ffffff',
-              padding: '12px',
-              borderRadius: '12px',
-              border: 'none',
-              fontSize: '15px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(15, 23, 42, 0.1)'
-            }}
-          >
-            メモを残す（足跡つき）
-          </button>
-        </div>
+      {/* 入力エリア */}
+      <div style={styles.inputCard}>
+        <textarea
+          style={styles.textarea}
+          placeholder="いま何を考えてる？雑に書いてみよう..."
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          rows={3}
+        />
+        <button style={styles.addButton} onClick={handleAddMemo}>
+          メモを残す（足跡つき）
+        </button>
+      </div>
 
-        {/* メモ一覧（タイムライン） */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            最近の足跡
-          </h2>
-          {memos.map((memo) => (
-            <div key={memo.id} style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '12px',
-              padding: '16px',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)'
-            }}>
-              <p style={{ fontSize: '15px', lineHeight: '1.5', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
-                {memo.text}
-              </p>
-
-              {/* AIからのひらめき返信（ある場合） */}
-              {memo.aiReply && (
-                <div style={{
-                  backgroundColor: '#f1f5f9',
-                  borderRadius: '8px',
-                  padding: '10px 12px',
-                  fontSize: '13px',
-                  color: '#334155',
-                  marginBottom: '12px',
-                  borderLeft: '3px solid #0f172a',
-                  lineHeight: '1.4'
-                }}>
-                  <span style={{ fontWeight: '700', marginRight: '4px' }}>✨ Geminiのひらめき:</span>
-                  {memo.aiReply}
-                </div>
-              )}
-
-              {/* フッター（タイムスタンプ ＆ AI深掘りボタン） */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
-                <div style={{ fontSize: '12px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>👣</span>
-                  <span>{memo.timestamp}</span>
-                </div>
-
+      {/* メモ一覧エリア */}
+      <div style={styles.listSection}>
+        <h2 style={styles.sectionTitle}>最近の足跡</h2>
+        {memos.length === 0 ? (
+          <p style={styles.emptyText}>サクッと書いたアイデアの断片。ここからひらめきが広がる。</p>
+        ) : (
+          memos.map((memo) => (
+            <div key={memo.id} style={styles.memoCard}>
+              <div style={styles.memoHeader}>
+                <p style={styles.memoText}>{memo.text}</p>
                 <button
-                  onClick={() => handleAskAi(memo.id, memo.text)}
-                  disabled={memo.isThinking}
-                  style={{
-                    backgroundColor: memo.isThinking ? '#cbd5e1' : '#f8fafc',
-                    color: memo.isThinking ? '#64748b' : '#0f172a',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    padding: '6px 10px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: memo.isThinking ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s'
-                  }}
+                  style={styles.deleteButton}
+                  onClick={() => handleDelete(memo.id)}
+                  title="削除"
                 >
-                  {memo.isThinking ? 'Geminiと思考中...' : '✨ AIに深掘りを頼む'}
+                  ×
                 </button>
               </div>
 
-            </div>
-          ))}
-        </div>
+              {/* AIのひらめき・深掘り表示 */}
+              {memo.aiReply && (
+                <div style={styles.aiReplyBox}>
+                  <p style={styles.aiReplyText}>💡 ひらめき・深掘り: {memo.aiReply}</p>
+                </div>
+              )}
 
+              <div style={styles.cardFooter}>
+                <span style={styles.dateText}>👣 {memo.createdAt}</span>
+                <button
+                  style={styles.aiButton}
+                  onClick={() => handleAIBrainstorm(memo.id, memo.text)}
+                  disabled={memo.isAnalyzing}
+                >
+                  {memo.isAnalyzing ? '思考中...' : '✨ AIに深掘りを頼む'}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </main>
   );
 }
+
+// スタイリング
+const styles = {
+  container: {
+    maxWidth: '600px',
+    margin: '0 auto',
+    padding: '20px',
+    fontFamily: 'sans-serif',
+    color: '#333',
+    backgroundColor: '#f9f9fb',
+    minHeight: '100vh',
+  },
+  title: {
+    textAlign: 'center' as const,
+    fontSize: '24px',
+    fontWeight: 'bold',
+    marginBottom: '4px',
+  },
+  subtitle: {
+    textAlign: 'center' as const,
+    fontSize: '13px',
+    color: '#666',
+    marginBottom: '24px',
+  },
+  inputCard: {
+    backgroundColor: '#fff',
+    padding: '16px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    marginBottom: '24px',
+  },
+  textarea: {
+    width: '100%',
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px solid #ddd',
+    resize: 'none' as const,
+    fontSize: '15px',
+    outline: 'none',
+    boxSizing: 'border-box' as const,
+    marginBottom: '12px',
+  },
+  addButton: {
+    width: '100%',
+    backgroundColor: '#111827',
+    color: '#fff',
+    padding: '12px',
+    borderRadius: '8px',
+    border: 'none',
+    fontWeight: 'bold' as const,
+    cursor: 'pointer',
+    fontSize: '15px',
+  },
+  listSection: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '16px',
+  },
+  sectionTitle: {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#4b5563',
+    marginBottom: '4px',
+  },
+  emptyText: {
+    fontSize: '14px',
+    color: '#9ca3af',
+    textAlign: 'center' as const,
+    padding: '20px 0',
+  },
+  memoCard: {
+    backgroundColor: '#fff',
+    padding: '16px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '12px',
+  },
+  memoHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  memoText: {
+    fontSize: '16px',
+    fontWeight: '500',
+    margin: 0,
+    wordBreak: 'break-word' as const,
+    flex: 1,
+  },
+  deleteButton: {
+    background: 'none',
+    border: 'none',
+    fontSize: '18px',
+    color: '#9ca3af',
+    cursor: 'pointer',
+    padding: '0 4px',
+  },
+  aiReplyBox: {
+    backgroundColor: '#f3f4f6',
+    padding: '12px',
+    borderRadius: '8px',
+    borderLeft: '4px solid #4f46e5',
+  },
+  aiReplyText: {
+    fontSize: '14px',
+    color: '#1f2937',
+    margin: 0,
+    lineHeight: '1.5',
+  },
+  cardFooter: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTop: '1px solid #f3f4f6',
+    paddingTop: '10px',
+  },
+  dateText: {
+    fontSize: '12px',
+    color: '#9ca3af',
+  },
+  aiButton: {
+    backgroundColor: '#f3f4f6',
+    color: '#374151',
+    border: '1px solid #e5e7eb',
+    padding: '6px 12px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    cursor: 'pointer',
+    fontWeight: '500' as const,
+  },
+};
