@@ -14,24 +14,48 @@ interface Memo {
 export default function Home() {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [inputText, setInputText] = useState('');
+  const [tickets, setTickets] = useState<number>(3); // 初期無料チケット3回
 
   // 104c3008.67310065.104c3009.a677faf7
   const RAKUTEN_AFFILIATE_ID = 'あなたの楽天アフィリエイトID';
 
+  // https://buy.stripe.com/9B64gy95AfDbfRxfDoeZ20n
+  const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/9B64gy95AfDbfrXfDoEZ20n';
+
   useEffect(() => {
-    const saved = localStorage.getItem('zatsumemo_memos');
-    if (saved) {
-      try {
-        setMemos(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load memos', e);
-      }
+    // メモとチケット残数の読み込み
+    const savedMemos = localStorage.getItem('zatsumemo_memos');
+    if (savedMemos) {
+      try { setMemos(JSON.parse(savedMemos)); } catch (e) { console.error(e); }
+    }
+
+    const savedTickets = localStorage.getItem('zatsumemo_tickets');
+    if (savedTickets !== null) {
+      setTickets(Number(savedTickets));
+    }
+
+    // Stripe決済完了後（?success=true）に戻ってきたときの処理
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('success') === 'true') {
+      const currentTickets = savedTickets !== null ? Number(savedTickets) : 3;
+      const newTickets = currentTickets + 5; // 5回分を追加
+      setTickets(newTickets);
+      localStorage.setItem('zatsumemo_tickets', newTickets.toString());
+      
+      // URLのクエリを綺麗にする
+      window.history.replaceState({}, document.title, window.location.pathname);
+      alert('✨ 決済が完了しました！AI深掘りチケットが5回分追加されました！');
     }
   }, []);
 
   const saveMemos = (newMemos: Memo[]) => {
     setMemos(newMemos);
     localStorage.setItem('zatsumemo_memos', JSON.stringify(newMemos));
+  };
+
+  const updateTickets = (newCount: number) => {
+    setTickets(newCount);
+    localStorage.setItem('zatsumemo_tickets', newCount.toString());
   };
 
   const handleAddMemo = () => {
@@ -49,6 +73,14 @@ export default function Home() {
   };
 
   const handleAIBrainstorm = async (id: string, text: string) => {
+    if (tickets <= 0) {
+      alert('チケットがありません。「チケットを追加購入する」からチャージしてください。');
+      return;
+    }
+
+    // チケットを1消費
+    updateTickets(tickets - 1);
+
     const updatedLoading = memos.map((m) =>
       m.id === id ? { ...m, isAnalyzing: true } : m
     );
@@ -76,6 +108,8 @@ export default function Home() {
       saveMemos(updatedWithAI);
     } catch (e) {
       console.error(e);
+      // エラー時はチケットを戻す
+      updateTickets(tickets);
       const updatedError = memos.map((m) =>
         m.id === id ? { ...m, aiReply: 'AIの呼び出しに失敗しました', isAnalyzing: false } : m
       );
@@ -92,6 +126,19 @@ export default function Home() {
     <main style={styles.container}>
       <h1 style={styles.title}>ザツメモ</h1>
       <p style={styles.subtitle}>足跡とひらめきを連れてくるAIノート</p>
+
+      {/* チケット残高＆購入エリア */}
+      <div style={styles.ticketCard}>
+        <div style={styles.ticketInfo}>
+          <span>🎫 AI深掘り残高: <strong>{tickets} 回分</strong></span>
+        </div>
+        <a
+          href={STRIPE_PAYMENT_LINK}
+          style={styles.buyButton}
+        >
+          チケットを追加する（5回 / ¥300）
+        </a>
+      </div>
 
       <div style={styles.inputCard}>
         <textarea
@@ -128,7 +175,6 @@ export default function Home() {
                 <div style={styles.aiReplyBox}>
                   <p style={styles.aiReplyText}>💡 ひらめき・深掘り: {memo.aiReply}</p>
                   
-                  {/* 楽天アフィリエイトリンクボタン */}
                   <a
                     href={`https://search.rakuten.co.jp/search/mall/${encodeURIComponent(memo.rakutenKeyword || memo.text)}/?scid=af_pc_etc&rafid=${RAKUTEN_AFFILIATE_ID}`}
                     target="_blank"
@@ -142,13 +188,19 @@ export default function Home() {
 
               <div style={styles.cardFooter}>
                 <span style={styles.dateText}>👣 {memo.createdAt}</span>
-                <button
-                  style={styles.aiButton}
-                  onClick={() => handleAIBrainstorm(memo.id, memo.text)}
-                  disabled={memo.isAnalyzing}
-                >
-                  {memo.isAnalyzing ? '思考中...' : '✨ AIに深掘りを頼む'}
-                </button>
+                {tickets > 0 ? (
+                  <button
+                    style={styles.aiButton}
+                    onClick={() => handleAIBrainstorm(memo.id, memo.text)}
+                    disabled={memo.isAnalyzing}
+                  >
+                    {memo.isAnalyzing ? '思考中...' : '✨ AIに深掘りを頼む'}
+                  </button>
+                ) : (
+                  <a href={STRIPE_PAYMENT_LINK} style={styles.noTicketButton}>
+                    🎫 チケットがありません（購入する）
+                  </a>
+                )}
               </div>
             </div>
           ))
@@ -178,7 +230,30 @@ const styles = {
     textAlign: 'center' as const,
     fontSize: '13px',
     color: '#666',
-    marginBottom: '24px',
+    marginBottom: '16px',
+  },
+  ticketCard: {
+    backgroundColor: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  ticketInfo: {
+    fontSize: '14px',
+    color: '#1e40af',
+  },
+  buyButton: {
+    backgroundColor: '#2563eb',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: 'bold' as const,
+    textDecoration: 'none',
   },
   inputCard: {
     backgroundColor: '#fff',
@@ -302,5 +377,14 @@ const styles = {
     fontSize: '13px',
     cursor: 'pointer',
     fontWeight: '500' as const,
+  },
+  noTicketButton: {
+    backgroundColor: '#fee2e2',
+    color: '#991b1b',
+    padding: '6px 12px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    textDecoration: 'none',
+    fontWeight: 'bold' as const,
   },
 };
