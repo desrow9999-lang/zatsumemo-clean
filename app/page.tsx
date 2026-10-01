@@ -16,11 +16,11 @@ export default function Home() {
   const [inputText, setInputText] = useState('');
   const [tickets, setTickets] = useState<number>(3); // 初期無料チケット3回
 
-  // 104c3008.67310065.104c3009.a677faf7
-  const RAKUTEN_AFFILIATE_ID = 'あなたの楽天アフィリエイトID';
+  // 📝 あなたの楽天アフィリエイトIDに書き換えてください
+  const RAKUTEN_AFFILIATE_ID = '104c3008.67310065.104c3009.a677faf7';
 
-  // https://buy.stripe.com/9B64gy95AfDbfRxfDoeZ20n
-  const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/9B64gy95AfDbfrXfDoEZ20n';
+  // 💳 正しいStripe決済リンクのURL
+  const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/9B64gy95AfDbfRxfDoeZ20n';
 
   useEffect(() => {
     // メモとチケット残数の読み込み
