@@ -21,7 +21,13 @@ export default function Home() {
   const handleSave = () => {
     if (!content.trim()) return;
     const now = new Date();
-    const timestamp = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate().padStart(2, '0'))} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    const timestamp = `${year}.${month}.${day} ${hours}:${minutes}`;
     
     const newMemo: Memo = {
       id: Date.now().toString(),
@@ -96,7 +102,6 @@ export default function Home() {
               fontSize: '15px',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'background-color 0.2s',
               boxShadow: '0 2px 4px rgba(15, 23, 42, 0.1)'
             }}
           >
