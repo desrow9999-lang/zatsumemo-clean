@@ -9,7 +9,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ reply: 'GEMINI_API_KEY が環境変数に設定されていません。' }, { status: 500 });
     }
 
-    // 確実に動作するモデル名（gemini-1.5-flash）を指定して直接fetch
+    // Google Gemini APIへ直接fetchでリクエスト（SDK不使用なのでインストールエラーが起きません）
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
