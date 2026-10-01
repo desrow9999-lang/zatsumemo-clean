@@ -30,7 +30,7 @@ export default function Home() {
           id: '1',
           text: 'サクッと書いたアイデアの断片。ここからひらめきが広がる。',
           timestamp: '2026.10.01 09:30',
-          aiReply: '「シンプルイズベスト」ですね！ここからどんな展開が生まれそうですか？下のボタンからいつでもAIに深掘りを頼めます。',
+          aiReply: '「シンプルイズベスト」ですね！右下のボタンから本物のGemini AIに深掘りをお願いできます。',
         }
       ]);
     }
@@ -63,37 +63,43 @@ export default function Home() {
     setContent('');
   };
 
-  // 個別のメモに対してAIにひらめき・深掘りをお願いするボタンの処理
-  const handleAskAi = (id: string) => {
-    const updated = memos.map((memo) => {
-      if (memo.id === id) {
-        return { ...memo, isThinking: true };
-      }
-      return memo;
-    });
-    setMemos(updated);
+  // 本物のGemini APIを呼び出す処理
+  const handleAskAi = async (id: string, text: string) => {
+    // 思考中フラグを立てる
+    const updatingThinking = memos.map((m) => m.id === id ? { ...m, isThinking: true } : m);
+    setMemos(updatingThinking);
 
-    // 擬似的にAIの思考時間を演出（のちに本物のAPI通信に置き換えます）
-    setTimeout(() => {
-      const targetMemo = memos.find(m => m.id === id);
-      const text = targetMemo ? targetMemo.text : '';
-      
-      const deepReplies = [
-        `「${text}」についてAIが多角的に分析しました。ターゲットを絞り、具体的なアクションを3つに分解してみると一気に進むかもしれません！`,
-        `このアイデア（${text}）の核心は、既存の常識を少しずらす点にありそうです。もし逆の視点からアプローチするとどうなるでしょうか？`,
-        `非常に興味深いメモですね。「${text}」をさらに発展させるために、まずは小さなプロトタイプを作ってみるのがおすすめです。`,
-        `AIによる深掘り完了です！この発想は、意外な分野の技術や習慣と組み合わせることで、大きなイノベーションに化けるポテンシャルがあります。`
-      ];
-      const randomReply = deepReplies[Math.floor(Math.random() * deepReplies.length)];
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: { prompt: text } as any, // 修正用の一時的な記述
+      });
 
-      const finalUpdated = memos.map((memo) => {
-        if (memo.id === id) {
-          return { ...memo, aiReply: randomReply, isThinking: false };
+      // APIルートへのリクエスト（安全にサーバー側でGeminiを呼ぶためのフェッチ）
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      const data = await res.json();
+      const aiReply = data.reply || 'AIからのひらめきを取得できませんでした。';
+
+      const finalUpdated = memos.map((m) => {
+        if (m.id === id) {
+          return { ...m, aiReply, isThinking: false };
         }
-        return memo;
+        return m;
       });
       saveToStorage(finalUpdated);
-    }, 1000);
+
+    } catch (error) {
+      console.error(error);
+      alert('AIの呼び出しに失敗しました');
+      const resetUpdated = memos.map((m) => m.id === id ? { ...m, isThinking: false } : m);
+      setMemos(resetUpdated);
+    }
   };
 
   return (
@@ -195,7 +201,7 @@ export default function Home() {
                   borderLeft: '3px solid #0f172a',
                   lineHeight: '1.4'
                 }}>
-                  <span style={{ fontWeight: '700', marginRight: '4px' }}>✨ AIのひらめき:</span>
+                  <span style={{ fontWeight: '700', marginRight: '4px' }}>✨ Geminiのひらめき:</span>
                   {memo.aiReply}
                 </div>
               )}
@@ -208,7 +214,7 @@ export default function Home() {
                 </div>
 
                 <button
-                  onClick={() => handleAskAi(memo.id)}
+                  onClick={() => handleAskAi(memo.id, memo.text)}
                   disabled={memo.isThinking}
                   style={{
                     backgroundColor: memo.isThinking ? '#cbd5e1' : '#f8fafc',
@@ -222,7 +228,7 @@ export default function Home() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  {memo.isThinking ? '考え中...' : '✨ AIに深掘りを頼む'}
+                  {memo.isThinking ? 'Geminiと思考中...' : '✨ AIに深掘りを頼む'}
                 </button>
               </div>
 
