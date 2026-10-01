@@ -16,15 +16,15 @@ export async function POST(request: Request) {
         'Authorization': `Bearer ` + apiKey,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // 高速かつ非常に安定した賢いモデル
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: 'あなたはユーザーのメモを深掘りし、ポジティブで建設的なひらめきやアドバイスを日本語で3〜4文程度で短く返す優秀なアシスタントです。'
+            content: 'あなたはユーザーのメモを鋭く深掘りし、さらに調べるための検索の視点や、ポジティブで建設的なひらめきを日本語で3〜4文程度でスマートに返すアシスタントです。「〜のひらめき：」といった固定の肩書は出力せず、内容だけを簡潔に返してください。'
           },
           {
             role: 'user',
-            content: `以下のメモに対してひらめきをください。\n\nメモ: 「${text}」`
+            content: `以下のメモに対して、深掘りの視点や検索のヒントを含めたひらめきをください。\n\nメモ: 「${text}」`
           }
         ],
         temperature: 0.7,
