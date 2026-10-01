@@ -6,6 +6,7 @@ interface Memo {
   id: string;
   text: string;
   aiReply?: string;
+  rakutenKeyword?: string;
   createdAt: string;
   isAnalyzing?: boolean;
 }
@@ -14,7 +15,9 @@ export default function Home() {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [inputText, setInputText] = useState('');
 
-  // ローカルストレージからメモを読み込む
+  // 104c3008.67310065.104c3009.a677faf7
+  const RAKUTEN_AFFILIATE_ID = 'あなたの楽天アフィリエイトID';
+
   useEffect(() => {
     const saved = localStorage.getItem('zatsumemo_memos');
     if (saved) {
@@ -26,13 +29,11 @@ export default function Home() {
     }
   }, []);
 
-  // メモを保存する関数
   const saveMemos = (newMemos: Memo[]) => {
     setMemos(newMemos);
     localStorage.setItem('zatsumemo_memos', JSON.stringify(newMemos));
   };
 
-  // メモを追加する
   const handleAddMemo = () => {
     if (!inputText.trim()) return;
 
@@ -47,9 +48,7 @@ export default function Home() {
     setInputText('');
   };
 
-  // AIに深掘りや検索のヒントを頼む
   const handleAIBrainstorm = async (id: string, text: string) => {
-    // 分析中のフラグを立てる
     const updatedLoading = memos.map((m) =>
       m.id === id ? { ...m, isAnalyzing: true } : m
     );
@@ -65,7 +64,14 @@ export default function Home() {
       const data = await res.json();
 
       const updatedWithAI = memos.map((m) =>
-        m.id === id ? { ...m, aiReply: data.reply, isAnalyzing: false } : m
+        m.id === id
+          ? {
+              ...m,
+              aiReply: data.reply,
+              rakutenKeyword: data.keyword,
+              isAnalyzing: false,
+            }
+          : m
       );
       saveMemos(updatedWithAI);
     } catch (e) {
@@ -77,7 +83,6 @@ export default function Home() {
     }
   };
 
-  // メモを削除する
   const handleDelete = (id: string) => {
     const filtered = memos.filter((m) => m.id !== id);
     saveMemos(filtered);
@@ -88,7 +93,6 @@ export default function Home() {
       <h1 style={styles.title}>ザツメモ</h1>
       <p style={styles.subtitle}>足跡とひらめきを連れてくるAIノート</p>
 
-      {/* 入力エリア */}
       <div style={styles.inputCard}>
         <textarea
           style={styles.textarea}
@@ -102,7 +106,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* メモ一覧エリア */}
       <div style={styles.listSection}>
         <h2 style={styles.sectionTitle}>最近の足跡</h2>
         {memos.length === 0 ? (
@@ -121,10 +124,19 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* AIのひらめき・深掘り表示 */}
               {memo.aiReply && (
                 <div style={styles.aiReplyBox}>
                   <p style={styles.aiReplyText}>💡 ひらめき・深掘り: {memo.aiReply}</p>
+                  
+                  {/* 楽天アフィリエイトリンクボタン */}
+                  <a
+                    href={`https://search.rakuten.co.jp/search/mall/${encodeURIComponent(memo.rakutenKeyword || memo.text)}/?scid=af_pc_etc&rafid=${RAKUTEN_AFFILIATE_ID}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.rakutenButton}
+                  >
+                    🛒 楽天市場で「{memo.rakutenKeyword || memo.text}」を探す
+                  </a>
                 </div>
               )}
 
@@ -146,7 +158,6 @@ export default function Home() {
   );
 }
 
-// スタイリング
 const styles = {
   container: {
     maxWidth: '600px',
@@ -249,12 +260,27 @@ const styles = {
     padding: '12px',
     borderRadius: '8px',
     borderLeft: '4px solid #4f46e5',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '8px',
   },
   aiReplyText: {
     fontSize: '14px',
     color: '#1f2937',
     margin: 0,
     lineHeight: '1.5',
+  },
+  rakutenButton: {
+    display: 'inline-block',
+    backgroundColor: '#bf0000',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    textAlign: 'center' as const,
+    textDecoration: 'none',
+    fontWeight: 'bold' as const,
+    marginTop: '4px',
   },
   cardFooter: {
     display: 'flex',
